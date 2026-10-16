@@ -1,0 +1,64 @@
+package com.yehleh.aislewise.data.repo
+
+import com.yehleh.aislewise.data.db.dao.ListEntryRow
+import com.yehleh.aislewise.data.db.entities.ItemStore
+import com.yehleh.aislewise.data.db.entities.Section
+import com.yehleh.aislewise.data.db.entities.Store
+import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
+
+/** Filters list entries to a store and groups them by section in that store's aisle order. */
+object ListGrouper {
+
+    /**
+     * @param storeFilter null for "All"; otherwise only entries available at that store, plus
+     *   entries with no store assigned (they can be bought anywhere).
+     */
+    fun group(
+        entries: List<ListEntryRow>,
+        itemStores: List<ItemStore>,
+        stores: List<Store>,
+        sections: List<Section>,
+        storeOrders: List<StoreSectionOrder>,
+        storeFilter: Long?,
+    ): List<SectionGroup> {
+        val storesById = stores.associateBy { it.id }
+        val storeIdsByItem = itemStores.groupBy({ it.itemId }, { it.storeId })
+        val sectionsById = sections.associateBy { it.id }
+        val orderForStore = storeFilter?.let { id ->
+            storeOrders.filter { it.storeId == id }.associate { it.sectionId to it.position }
+        }.orEmpty()
+
+        fun sectionRank(sectionId: Long?): Int {
+            if (sectionId == null) return Int.MAX_VALUE
+            return orderForStore[sectionId] ?: sectionsById[sectionId]?.defaultOrder?.plus(10_000) ?: Int.MAX_VALUE - 1
+        }
+
+        return entries
+            .mapNotNull { entry ->
+                val storeIds = storeIdsByItem[entry.itemId].orEmpty()
+                if (storeFilter != null && storeIds.isNotEmpty() && storeFilter !in storeIds) return@mapNotNull null
+                ListItemUi(entry, storeIds.mapNotNull { storesById[it] }.sortedBy { it.sortIndex })
+            }
+            .groupBy { it.entry.sectionId?.takeIf { id -> id in sectionsById } }
+            .entries
+            .sortedBy { sectionRank(it.key) }
+            .map { (sectionId, items) ->
+                SectionGroup(
+                    section = sectionId?.let { sectionsById[it] },
+                    items = items.sortedWith(compareBy({ it.entry.checked }, { it.entry.name.lowercase() })),
+                )
+            }
+    }
+
+    /** Unchecked entry counts per store (entries with no store count toward every store). */
+    fun countsByStore(entries: List<ListEntryRow>, itemStores: List<ItemStore>, stores: List<Store>): Map<Long, Int> {
+        val storeIdsByItem = itemStores.groupBy({ it.itemId }, { it.storeId })
+        val open = entries.filterNot { it.checked }
+        return stores.associate { store ->
+            store.id to open.count { e ->
+                val ids = storeIdsByItem[e.itemId].orEmpty()
+                ids.isEmpty() || store.id in ids
+            }
+        }
+    }
+}
