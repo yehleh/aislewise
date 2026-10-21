@@ -40,16 +40,20 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -61,6 +65,7 @@ import com.yehleh.aislewise.feature.add.AddItemSheet
 import com.yehleh.aislewise.ui.components.StoreBadges
 import com.yehleh.aislewise.ui.components.StoreDot
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -186,15 +191,25 @@ private fun ListRow(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = {
-            if (it != SwipeToDismissBoxValue.Settled) onRemove()
-            it != SwipeToDismissBoxValue.Settled
+    // The swipe state is remembered across recompositions, so read the latest callback, not the first one.
+    val currentOnRemove by rememberUpdatedState(onRemove)
+    var rowWidth by remember { mutableFloatStateOf(0f) }
+    lateinit var dismissState: SwipeToDismissBoxState
+    dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.Settled) return@rememberSwipeToDismissBoxState true
+            // A fast flick can request a dismiss after only a short drag; require a deliberate swipe.
+            val dragged = abs(dismissState.requireOffset())
+            val deliberate = rowWidth > 0f && dragged >= rowWidth * SWIPE_DELETE_FRACTION
+            if (deliberate) currentOnRemove()
+            deliberate
         },
+        positionalThreshold = { totalDistance -> totalDistance * SWIPE_DELETE_FRACTION },
     )
     SwipeToDismissBox(
         state = dismissState,
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { rowWidth = it.width.toFloat() },
+        enableDismissFromStartToEnd = false,
         backgroundContent = {
             val color by animateColorAsState(
                 if (dismissState.targetValue == SwipeToDismissBoxValue.Settled) MaterialTheme.colorScheme.surface
@@ -241,6 +256,9 @@ private fun ListRow(
         }
     }
 }
+
+/** How far (as a share of the row width) an item must be dragged before letting go deletes it. */
+private const val SWIPE_DELETE_FRACTION = 0.4f
 
 @Composable
 private fun EmptyList(hasStores: Boolean, filtered: Boolean, modifier: Modifier = Modifier) {
