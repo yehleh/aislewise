@@ -58,6 +58,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yehleh.aislewise.data.db.dao.ListEntryRow
 import com.yehleh.aislewise.data.repo.ListItemUi
 import com.yehleh.aislewise.feature.add.AddItemSheet
+import com.yehleh.aislewise.ui.components.StoreBadges
+import com.yehleh.aislewise.ui.components.StoreDot
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -129,6 +131,7 @@ fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
                             selected = state.selectedStoreId == store.id,
                             onClick = { viewModel.selectStore(store.id) },
                             label = { Text("${store.name} (${state.counts[store.id] ?: 0})") },
+                            leadingIcon = { StoreDot(store) },
                         )
                     }
                 }
@@ -221,13 +224,10 @@ private fun ListRow(
                     color = dim,
                     textDecoration = if (entry.checked) TextDecoration.LineThrough else null,
                 )
-                val subtitle = when {
-                    item.stores.isEmpty() -> "Any store"
-                    showStores -> item.stores.joinToString(" · ") { it.name }
-                    else -> null
-                }
-                if (subtitle != null) {
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                when {
+                    item.stores.isEmpty() ->
+                        Text("Any store", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    showStores -> StoreBadges(item.stores, Modifier.padding(top = 2.dp))
                 }
             }
             if (!entry.quantity.isNullOrBlank()) {

@@ -111,4 +111,15 @@ class RepositoryTest {
         storeRepo.resetSectionOrder(store)
         assertEquals(sections.map { it.id }, storeRepo.observeSectionOrder(store).first().map { it.id })
     }
+
+    @Test fun `new stores get distinct colors and keep a chosen one`() = runTest {
+        val a = storeRepo.addStore("Costco", null)
+        val b = storeRepo.addStore("ShopRite", null)
+        val chosen = com.yehleh.aislewise.data.StorePalette.COLORS[5]
+        val c = storeRepo.addStore("Target", null, chosen)
+        val colors = storeRepo.observeStores().first().associate { it.id to it.color }
+        assertEquals(com.yehleh.aislewise.data.StorePalette.COLORS[0], colors[a])
+        assertEquals(com.yehleh.aislewise.data.StorePalette.COLORS[1], colors[b])
+        assertEquals(chosen, colors[c])
+    }
 }

@@ -18,9 +18,10 @@ import javax.inject.Inject
 class StoresViewModel @Inject constructor(private val repo: StoreRepository) : ViewModel() {
     val stores: StateFlow<List<Store>?> = repo.observeStores().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun save(existing: Store?, name: String, type: String) = viewModelScope.launch {
+    fun save(existing: Store?, name: String, type: String, color: Int?) = viewModelScope.launch {
         if (name.isBlank()) return@launch
-        if (existing == null) repo.addStore(name, type) else repo.updateStore(existing.copy(name = name, type = type))
+        if (existing == null) repo.addStore(name, type, color)
+        else repo.updateStore(existing.copy(name = name, type = type, color = color ?: existing.color))
     }
 
     fun delete(store: Store) = viewModelScope.launch { repo.deleteStore(store.id) }

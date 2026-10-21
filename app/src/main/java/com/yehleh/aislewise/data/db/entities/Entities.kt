@@ -12,6 +12,8 @@ data class Store(
     /** Optional free-form label, e.g. "Grocery" or "Pharmacy". */
     val type: String? = null,
     val sortIndex: Int = 0,
+    /** ARGB badge color; null means "use the palette default" (see StorePalette). */
+    val color: Int? = null,
 )
 
 @Entity(tableName = "sections")

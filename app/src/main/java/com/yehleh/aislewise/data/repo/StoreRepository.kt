@@ -3,6 +3,7 @@ package com.yehleh.aislewise.data.repo
 import androidx.room.withTransaction
 import com.yehleh.aislewise.data.db.AppDatabase
 import com.yehleh.aislewise.data.db.Seed
+import com.yehleh.aislewise.data.StorePalette
 import com.yehleh.aislewise.data.db.entities.Section
 import com.yehleh.aislewise.data.db.entities.Store
 import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
@@ -29,8 +30,18 @@ class StoreRepository @Inject constructor(private val db: AppDatabase) {
     /** The id of the catch-all "Other" section, used when nothing better is known. */
     suspend fun otherSectionId(): Long? = sectionDao.getSections().firstOrNull { it.name == Seed.OTHER }?.id
 
-    suspend fun addStore(name: String, type: String?): Long =
-        storeDao.insert(Store(name = name.trim(), type = type?.trim()?.ifEmpty { null }, sortIndex = storeDao.nextSortIndex()))
+    /** Adds a store; without an explicit [color] it gets the first palette color no other store uses. */
+    suspend fun addStore(name: String, type: String?, color: Int? = null): Long {
+        val used = storeDao.getStores().map { StorePalette.colorOf(it) }
+        return storeDao.insert(
+            Store(
+                name = name.trim(),
+                type = type?.trim()?.ifEmpty { null },
+                sortIndex = storeDao.nextSortIndex(),
+                color = color ?: StorePalette.nextUnused(used),
+            ),
+        )
+    }
 
     suspend fun updateStore(store: Store) =
         storeDao.update(store.copy(name = store.name.trim(), type = store.type?.trim()?.ifEmpty { null }))

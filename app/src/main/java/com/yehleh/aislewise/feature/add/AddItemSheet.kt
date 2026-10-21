@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yehleh.aislewise.ui.components.SectionDropdown
+import com.yehleh.aislewise.ui.components.StoreBadges
 import com.yehleh.aislewise.ui.components.StoreChips
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,8 +91,8 @@ fun AddItemSheet(onDismiss: () -> Unit, viewModel: AddItemViewModel = hiltViewMo
                         ListItem(
                             headlineContent = { Text(s.name) },
                             supportingContent = {
-                                val names = stores.filter { it.id in s.storeIds }.joinToString(" · ") { it.name }
-                                Text(names.ifEmpty { "Any store" })
+                                val itemStores = stores.filter { it.id in s.storeIds }
+                                if (itemStores.isEmpty()) Text("Any store") else StoreBadges(itemStores)
                             },
                             leadingContent = { Icon(Icons.Default.History, null) },
                             modifier = Modifier.clickable { viewModel.pickSuggestion(s) },

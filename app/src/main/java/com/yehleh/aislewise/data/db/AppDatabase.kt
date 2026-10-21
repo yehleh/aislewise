@@ -2,6 +2,7 @@ package com.yehleh.aislewise.data.db
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.yehleh.aislewise.data.db.dao.CatalogDao
 import com.yehleh.aislewise.data.db.dao.ListDao
@@ -16,7 +17,7 @@ import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
 
 @Database(
     entities = [Store::class, Section::class, StoreSectionOrder::class, CatalogItem::class, ItemStore::class, ListEntry::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,6 +29,17 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         const val NAME = "aislewise.db"
     }
+}
+
+object Migrations {
+    /** v2: per-store badge color. */
+    val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE stores ADD COLUMN color INTEGER DEFAULT NULL")
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2)
 }
 
 /** Inserts the default sections when the database is first created. */

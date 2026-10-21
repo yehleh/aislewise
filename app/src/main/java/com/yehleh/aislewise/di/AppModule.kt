@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.yehleh.aislewise.BuildConfig
 import com.yehleh.aislewise.data.db.AppDatabase
+import com.yehleh.aislewise.data.db.Migrations
 import com.yehleh.aislewise.data.db.SeedCallback
 import com.yehleh.aislewise.feature.scan.GeminiConfig
 import com.yehleh.aislewise.feature.scan.GeminiListImageParser
@@ -27,6 +28,7 @@ object AppModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
             .addCallback(SeedCallback)
+            .addMigrations(*Migrations.ALL)
             .build()
 
     @Provides

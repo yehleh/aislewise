@@ -41,7 +41,11 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yehleh.aislewise.data.StorePalette
 import com.yehleh.aislewise.data.db.entities.Store
+import com.yehleh.aislewise.ui.components.ColorSwatches
+import com.yehleh.aislewise.ui.components.StoreBadge
+import com.yehleh.aislewise.ui.components.StoreDot
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +77,7 @@ fun StoresScreen(onEditSectionOrder: (Long) -> Unit, viewModel: StoresViewModel 
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
             items(list, key = { it.id }) { store ->
                 ListItem(
+                    leadingContent = { StoreDot(store, size = 24.dp) },
                     headlineContent = { Text(store.name) },
                     supportingContent = store.type?.let { { Text(it) } },
                     trailingContent = {
@@ -91,8 +96,8 @@ fun StoresScreen(onEditSectionOrder: (Long) -> Unit, viewModel: StoresViewModel 
         StoreDialog(
             store = store,
             onDismiss = { editing = null },
-            onSave = { name, type ->
-                viewModel.save(store.takeIf { it.id != 0L }, name, type)
+            onSave = { name, type, color ->
+                viewModel.save(store.takeIf { it.id != 0L }, name, type, color)
                 editing = null
             },
             onDelete = if (store.id != 0L) {
@@ -108,9 +113,11 @@ fun StoresScreen(onEditSectionOrder: (Long) -> Unit, viewModel: StoresViewModel 
 }
 
 @Composable
-private fun StoreDialog(store: Store, onDismiss: () -> Unit, onSave: (String, String) -> Unit, onDelete: (() -> Unit)?) {
+private fun StoreDialog(store: Store, onDismiss: () -> Unit, onSave: (String, String, Int?) -> Unit, onDelete: (() -> Unit)?) {
     var name by rememberSaveable { mutableStateOf(store.name) }
     var type by rememberSaveable { mutableStateOf(store.type.orEmpty()) }
+    // New stores start unset so the repository can pick the next unused color.
+    var color by rememberSaveable { mutableStateOf(if (store.id == 0L) null else StorePalette.colorOf(store)) }
     var confirmDelete by remember { mutableStateOf(false) }
     val nameFocus = remember { FocusRequester() }
 
@@ -148,9 +155,15 @@ private fun StoreDialog(store: Store, onDismiss: () -> Unit, onSave: (String, St
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Text("Color", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                ColorSwatches(selected = color ?: 0, onSelect = { color = it })
+                if (name.isNotBlank()) {
+                    val preview = store.copy(name = name.trim(), color = color ?: StorePalette.COLORS.first())
+                    if (color != null) StoreBadge(preview)
+                }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(name, type) }, enabled = name.isNotBlank()) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { onSave(name, type, color) }, enabled = name.isNotBlank()) { Text("Save") } },
         dismissButton = {
             Row {
                 if (onDelete != null) TextButton(onClick = { confirmDelete = true }) { Text("Delete") }

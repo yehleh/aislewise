@@ -18,6 +18,9 @@ interface StoreDao {
     @Query("SELECT * FROM stores ORDER BY sortIndex, name COLLATE NOCASE")
     fun observeStores(): Flow<List<Store>>
 
+    @Query("SELECT * FROM stores ORDER BY sortIndex, name COLLATE NOCASE")
+    suspend fun getStores(): List<Store>
+
     @Query("SELECT * FROM stores WHERE id = :id")
     suspend fun getStore(id: Long): Store?
 

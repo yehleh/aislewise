@@ -67,6 +67,7 @@ import coil.compose.AsyncImage
 import com.yehleh.aislewise.data.db.entities.Section
 import com.yehleh.aislewise.data.db.entities.Store
 import com.yehleh.aislewise.ui.components.SectionDropdown
+import com.yehleh.aislewise.ui.components.StoreBadges
 import com.yehleh.aislewise.ui.components.StoreChips
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -288,16 +289,17 @@ private fun ReviewCard(row: ReviewRow, stores: List<Store>, sections: List<Secti
                     color = if (row.include) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 val sectionName = sections.firstOrNull { it.id == row.sectionId }?.name ?: "No section"
-                val storeNames = stores.filter { it.id in row.storeIds }.joinToString(", ") { it.name }
+                val rowStores = stores.filter { it.id in row.storeIds }
                 Text(
                     when {
                         needsStores -> "$sectionName · New item, pick stores"
-                        storeNames.isEmpty() -> "$sectionName · Any store"
-                        else -> "$sectionName · $storeNames"
+                        rowStores.isEmpty() -> "$sectionName · Any store"
+                        else -> sectionName
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (needsStores) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (rowStores.isNotEmpty()) StoreBadges(rowStores, Modifier.padding(top = 4.dp))
             }
             Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = if (expanded) "Collapse" else "Edit")
         }
