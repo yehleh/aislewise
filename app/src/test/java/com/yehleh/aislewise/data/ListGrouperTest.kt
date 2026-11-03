@@ -78,4 +78,14 @@ class ListGrouperTest {
     @Test fun `counts include unchecked entries available at each store`() {
         assertEquals(mapOf(costco.id to 3, shoprite.id to 3), ListGrouper.countsByStore(entries, itemStores, stores))
     }
+
+    @Test fun `stores are ordered by count descending, ties keep existing order`() {
+        val other = Store(12, "Aldi", sortIndex = 2)
+        val all = listOf(costco, shoprite, other)
+        val counts = mapOf(costco.id to 1, shoprite.id to 5, other.id to 1)
+        assertEquals(
+            listOf(shoprite.id, costco.id, other.id),
+            ListGrouper.sortByCount(all, counts).map { it.id },
+        )
+    }
 }

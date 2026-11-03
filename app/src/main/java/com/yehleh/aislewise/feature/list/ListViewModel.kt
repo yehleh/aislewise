@@ -52,10 +52,11 @@ class ListViewModel @Inject constructor(
     val state: StateFlow<ListUiState> = combine(data, selectedStore) { d, selected ->
         // Fall back to "All" if the selected store was deleted.
         val storeId = selected?.takeIf { id -> d.stores.any { it.id == id } }
+        val counts = ListGrouper.countsByStore(d.entries, d.itemStores, d.stores)
         ListUiState(
             loading = false,
-            stores = d.stores,
-            counts = ListGrouper.countsByStore(d.entries, d.itemStores, d.stores),
+            stores = ListGrouper.sortByCount(d.stores, counts),
+            counts = counts,
             totalOpen = d.entries.count { !it.checked },
             selectedStoreId = storeId,
             groups = ListGrouper.group(d.entries, d.itemStores, d.stores, d.sections, d.orders, storeId),

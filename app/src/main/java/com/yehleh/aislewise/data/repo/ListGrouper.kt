@@ -50,6 +50,10 @@ object ListGrouper {
             }
     }
 
+    /** Orders stores by their count, highest first; ties keep the given order. */
+    fun sortByCount(stores: List<Store>, counts: Map<Long, Int>): List<Store> =
+        stores.sortedByDescending { counts[it.id] ?: 0 }
+
     /** Unchecked entry counts per store (entries with no store count toward every store). */
     fun countsByStore(entries: List<ListEntryRow>, itemStores: List<ItemStore>, stores: List<Store>): Map<Long, Int> {
         val storeIdsByItem = itemStores.groupBy({ it.itemId }, { it.storeId })
