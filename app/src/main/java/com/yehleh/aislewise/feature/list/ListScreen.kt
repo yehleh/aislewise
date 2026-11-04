@@ -165,7 +165,7 @@ fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
                         items(group.items, key = { it.entry.id }) { item ->
                             ListRow(
                                 item = item,
-                                showStores = state.selectedStoreId == null,
+                                selectedStoreId = state.selectedStoreId,
                                 onToggle = { viewModel.toggle(item.entry) },
                                 onRemove = { removeWithUndo(item.entry) },
                                 modifier = Modifier.animateItem(),
@@ -186,7 +186,7 @@ fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
 @Composable
 private fun ListRow(
     item: ListItemUi,
-    showStores: Boolean,
+    selectedStoreId: Long?,
     onToggle: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
@@ -242,7 +242,25 @@ private fun ListRow(
                 when {
                     item.stores.isEmpty() ->
                         Text("Any store", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    showStores -> StoreBadges(item.stores, Modifier.padding(top = 2.dp))
+                    selectedStoreId == null ->
+                        StoreBadges(item.stores, Modifier.padding(top = 2.dp))
+                    else -> {
+                        val otherStores = item.stores.filter { it.id != selectedStoreId }
+                        if (otherStores.isNotEmpty()) {
+                            Row(
+                                Modifier.padding(top = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    "Also at",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                StoreBadges(otherStores)
+                            }
+                        }
+                    }
                 }
             }
             if (!entry.quantity.isNullOrBlank()) {
