@@ -53,7 +53,7 @@ class MigrationTest {
             close()
         }
 
-        // Opening runs the migration; Room then fails if the result doesn't match the v2 entities.
+        // Opening runs the migrations; Room then fails if the result doesn't match the current entities.
         val db = Room.databaseBuilder(context, AppDatabase::class.java, "migration-test")
             .addMigrations(*Migrations.ALL)
             .allowMainThreadQueries()
@@ -64,6 +64,26 @@ class MigrationTest {
             assertEquals("Warehouse", store.type)
             assertNull(store.color)
             assertEquals(setOf(1L), CatalogRepository(db).findByName("milk")!!.storeIds)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test fun `v2 to v3 keeps catalog items and adds an empty note`() = runTest {
+        createFromSchema("migration-test-v2", 2).apply {
+            execSQL("INSERT INTO sections (id, name, defaultOrder) VALUES (1, 'Dairy', 0)")
+            execSQL("INSERT INTO catalog_items (id, name, normalizedName, sectionId) VALUES (1, 'Milk', 'milk', 1)")
+            close()
+        }
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, "migration-test-v2")
+            .addMigrations(*Migrations.ALL)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val item = CatalogRepository(db).findByName("milk")!!
+            assertEquals("Milk", item.name)
+            assertNull(item.note)
         } finally {
             db.close()
         }

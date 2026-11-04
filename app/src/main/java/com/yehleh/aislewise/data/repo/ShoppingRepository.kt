@@ -48,7 +48,7 @@ class ShoppingRepository @Inject constructor(
 
     /** Re-inserts a removed entry (for undo). */
     suspend fun restore(row: ListEntryRow) {
-        dao.insert(ListEntry(row.id, row.itemId, row.quantity, row.note, row.checked, row.addedAt))
+        dao.insert(ListEntry(id = row.id, itemId = row.itemId, quantity = row.quantity, checked = row.checked, addedAt = row.addedAt))
     }
 
     suspend fun clearChecked() = dao.deleteChecked()

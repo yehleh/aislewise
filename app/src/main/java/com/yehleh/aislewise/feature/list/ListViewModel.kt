@@ -8,6 +8,7 @@ import com.yehleh.aislewise.data.db.entities.ItemStore
 import com.yehleh.aislewise.data.db.entities.Section
 import com.yehleh.aislewise.data.db.entities.Store
 import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
+import com.yehleh.aislewise.data.repo.CatalogRepository
 import com.yehleh.aislewise.data.repo.ListGrouper
 import com.yehleh.aislewise.data.repo.SectionGroup
 import com.yehleh.aislewise.data.repo.ShoppingRepository
@@ -33,6 +34,7 @@ data class ListUiState(
 @HiltViewModel
 class ListViewModel @Inject constructor(
     private val shopping: ShoppingRepository,
+    private val catalog: CatalogRepository,
     storeRepo: StoreRepository,
     private val savedState: SavedStateHandle,
 ) : ViewModel() {
@@ -71,6 +73,8 @@ class ListViewModel @Inject constructor(
     fun toggle(entry: ListEntryRow) = viewModelScope.launch { shopping.setChecked(entry.id, !entry.checked) }
 
     fun remove(entry: ListEntryRow) = viewModelScope.launch { shopping.remove(entry.id) }
+
+    fun setNote(entry: ListEntryRow, note: String?) = viewModelScope.launch { catalog.setNote(entry.itemId, note) }
 
     fun undoRemove(entry: ListEntryRow) = viewModelScope.launch { shopping.restore(entry) }
 

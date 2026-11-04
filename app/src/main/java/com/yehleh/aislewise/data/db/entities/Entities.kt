@@ -52,6 +52,8 @@ data class CatalogItem(
     val name: String,
     val normalizedName: String,
     val sectionId: Long?,
+    /** Free-form note, e.g. a remembered price. */
+    val note: String? = null,
 )
 
 /** The stores the user last chose for an item. */

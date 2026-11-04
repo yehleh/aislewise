@@ -74,6 +74,16 @@ fun ItemEditorScreen(onBack: () -> Unit, viewModel: ItemEditorViewModel = hiltVi
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth(),
             )
+            OutlinedTextField(
+                value = state.note,
+                onValueChange = viewModel::onNoteChange,
+                label = { Text("Note") },
+                placeholder = { Text("e.g. This was $3.49 at ShopRite") },
+                minLines = 2,
+                maxLines = 4,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth(),
+            )
             SectionDropdown(sections, state.sectionId, viewModel::onSectionChange, Modifier.fillMaxWidth())
             Text("Available at", style = MaterialTheme.typography.labelLarge)
             StoreChips(stores, state.storeIds, viewModel::toggleStore)

@@ -49,6 +49,7 @@ data class ItemEditorState(
     val name: String = "",
     val sectionId: Long? = null,
     val storeIds: Set<Long> = emptySet(),
+    val note: String = "",
     val error: String? = null,
     val done: Boolean = false,
 )
@@ -71,12 +72,19 @@ class ItemEditorViewModel @Inject constructor(
         viewModelScope.launch {
             val item = catalog.getKnowledge(itemId)
             _state.value = if (item == null) ItemEditorState(done = true)
-            else ItemEditorState(loaded = true, name = item.name, sectionId = item.sectionId, storeIds = item.storeIds)
+            else ItemEditorState(
+                loaded = true,
+                name = item.name,
+                sectionId = item.sectionId,
+                storeIds = item.storeIds,
+                note = item.note.orEmpty(),
+            )
         }
     }
 
     fun onNameChange(name: String) = _state.update { it.copy(name = name, error = null) }
     fun onSectionChange(id: Long?) = _state.update { it.copy(sectionId = id) }
+    fun onNoteChange(note: String) = _state.update { it.copy(note = note) }
     fun toggleStore(id: Long) = _state.update {
         it.copy(storeIds = if (id in it.storeIds) it.storeIds - id else it.storeIds + id)
     }
@@ -89,7 +97,7 @@ class ItemEditorViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                catalog.update(itemId, s.name, s.sectionId, s.storeIds)
+                catalog.update(itemId, s.name, s.sectionId, s.storeIds, s.note)
                 _state.update { it.copy(done = true) }
             } catch (e: DuplicateItemNameException) {
                 _state.update { it.copy(error = "\"${e.existingName}\" already exists") }

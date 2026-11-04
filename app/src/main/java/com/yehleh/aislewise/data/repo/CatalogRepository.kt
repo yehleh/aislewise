@@ -64,18 +64,24 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
     }
 
     /** Edits an existing item, including renaming it. */
-    suspend fun update(itemId: Long, name: String, sectionId: Long?, storeIds: Set<Long>) = db.withTransaction {
-        val item = requireNotNull(dao.getItem(itemId)) { "Item $itemId not found" }
-        val displayName = name.trim().replace(Regex("\\s+"), " ")
-        val key = ItemNameNormalizer.normalize(displayName)
-        require(key.isNotEmpty()) { "Item name is empty" }
-        val clash = dao.getByNormalizedName(key)
-        if (clash != null && clash.id != itemId) throw DuplicateItemNameException(clash.name)
-        dao.update(item.copy(name = displayName, normalizedName = key, sectionId = sectionId))
-        replaceStores(itemId, storeIds)
-    }
+    suspend fun update(itemId: Long, name: String, sectionId: Long?, storeIds: Set<Long>, note: String? = null) =
+        db.withTransaction {
+            val item = requireNotNull(dao.getItem(itemId)) { "Item $itemId not found" }
+            val displayName = name.trim().replace(Regex("\\s+"), " ")
+            val key = ItemNameNormalizer.normalize(displayName)
+            require(key.isNotEmpty()) { "Item name is empty" }
+            val clash = dao.getByNormalizedName(key)
+            if (clash != null && clash.id != itemId) throw DuplicateItemNameException(clash.name)
+            dao.update(item.copy(name = displayName, normalizedName = key, sectionId = sectionId, note = cleanNote(note)))
+            replaceStores(itemId, storeIds)
+        }
+
+    /** Sets the free-form note remembered with an item; blank clears it. */
+    suspend fun setNote(itemId: Long, note: String?) = dao.setNote(itemId, cleanNote(note))
 
     suspend fun delete(itemId: Long) = dao.delete(itemId)
+
+    private fun cleanNote(note: String?): String? = note?.trim()?.ifEmpty { null }
 
     private suspend fun replaceStores(itemId: Long, storeIds: Set<Long>) {
         dao.clearStores(itemId)
@@ -83,5 +89,5 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
     }
 
     private suspend fun knowledgeFor(item: CatalogItem) =
-        ItemKnowledge(item.id, item.name, item.sectionId, dao.getStoreIds(item.id).toSet())
+        ItemKnowledge(item.id, item.name, item.sectionId, dao.getStoreIds(item.id).toSet(), item.note)
 }

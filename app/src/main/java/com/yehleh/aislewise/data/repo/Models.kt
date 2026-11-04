@@ -10,6 +10,7 @@ data class ItemKnowledge(
     val name: String,
     val sectionId: Long?,
     val storeIds: Set<Long>,
+    val note: String? = null,
 )
 
 data class CatalogEntry(

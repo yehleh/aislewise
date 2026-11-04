@@ -21,7 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -31,6 +33,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
@@ -39,6 +42,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -56,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,6 +80,7 @@ fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
     val scope = rememberCoroutineScope()
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    var noteEditing by remember { mutableStateOf<ListEntryRow?>(null) }
 
     fun removeWithUndo(entry: ListEntryRow) {
         viewModel.remove(entry)
@@ -167,6 +173,7 @@ fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
                                 item = item,
                                 selectedStoreId = state.selectedStoreId,
                                 onToggle = { viewModel.toggle(item.entry) },
+                                onEditNote = { noteEditing = item.entry },
                                 onRemove = { removeWithUndo(item.entry) },
                                 modifier = Modifier.animateItem(),
                             )
@@ -180,6 +187,17 @@ fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
     if (showAdd) {
         AddItemSheet(onDismiss = { showAdd = false })
     }
+
+    noteEditing?.let { entry ->
+        NoteDialog(
+            entry = entry,
+            onDismiss = { noteEditing = null },
+            onSave = { note ->
+                viewModel.setNote(entry, note)
+                noteEditing = null
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -188,6 +206,7 @@ private fun ListRow(
     item: ListItemUi,
     selectedStoreId: Long?,
     onToggle: () -> Unit,
+    onEditNote: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -239,6 +258,16 @@ private fun ListRow(
                     color = dim,
                     textDecoration = if (entry.checked) TextDecoration.LineThrough else null,
                 )
+                entry.note?.takeIf { it.isNotBlank() }?.let { note ->
+                    Text(
+                        note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textDecoration = if (entry.checked) TextDecoration.LineThrough else null,
+                    )
+                }
                 when {
                     item.stores.isEmpty() ->
                         Text("Any store", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -271,12 +300,41 @@ private fun ListRow(
                     modifier = Modifier.padding(end = 16.dp),
                 )
             }
+            IconButton(onClick = onEditNote) {
+                Icon(
+                    Icons.Default.EditNote,
+                    contentDescription = if (entry.note.isNullOrBlank()) "Add note" else "Edit note",
+                    tint = if (entry.note.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
 
 /** How far (as a share of the row width) an item must be dragged before letting go deletes it. */
 private const val SWIPE_DELETE_FRACTION = 0.4f
+
+@Composable
+private fun NoteDialog(entry: ListEntryRow, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
+    var text by rememberSaveable(entry.id) { mutableStateOf(entry.note.orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Note for ${entry.name}") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text("Note") },
+                placeholder = { Text("e.g. This was $3.49 at ShopRite") },
+                minLines = 2,
+                maxLines = 4,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
 
 @Composable
 private fun EmptyList(hasStores: Boolean, filtered: Boolean, modifier: Modifier = Modifier) {

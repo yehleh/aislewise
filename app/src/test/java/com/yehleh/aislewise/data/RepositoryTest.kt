@@ -80,6 +80,35 @@ class RepositoryTest {
         assertEquals(setOf(b), catalog.findByName("paper towel")!!.storeIds)
     }
 
+    @Test fun `a note is remembered with the item and shown on the list`() = runTest {
+        val id = shopping.addToList("Milk", null, null, emptySet())
+
+        catalog.setNote(id, "  $3.49 at ShopRite  ")
+
+        assertEquals("$3.49 at ShopRite", catalog.findByName("milk")!!.note)
+        assertEquals("$3.49 at ShopRite", shopping.observeEntries().first().single().note)
+    }
+
+    @Test fun `a blank note clears it`() = runTest {
+        val id = shopping.addToList("Milk", null, null, emptySet())
+        catalog.setNote(id, "price")
+
+        catalog.setNote(id, "   ")
+
+        assertNull(catalog.findByName("milk")!!.note)
+    }
+
+    @Test fun `a note survives re-adding and editing the item`() = runTest {
+        val id = shopping.addToList("Milk", null, null, emptySet())
+        catalog.setNote(id, "price")
+
+        shopping.addToList("milk", "2", null, emptySet())
+        assertEquals("price", catalog.findByName("Milk")!!.note)
+
+        catalog.update(id, "Whole milk", null, emptySet(), "price")
+        assertEquals("price", catalog.findByName("Whole milk")!!.note)
+    }
+
     @Test(expected = DuplicateItemNameException::class)
     fun `renaming onto an existing item is rejected`() = runTest {
         shopping.addToList("Apples", null, null, emptySet())

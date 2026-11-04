@@ -17,7 +17,7 @@ import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
 
 @Database(
     entities = [Store::class, Section::class, StoreSectionOrder::class, CatalogItem::class, ItemStore::class, ListEntry::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -39,7 +39,14 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2)
+    /** v3: a free-form note remembered with each catalog item. */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE catalog_items ADD COLUMN note TEXT DEFAULT NULL")
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }
 
 /** Inserts the default sections when the database is first created. */

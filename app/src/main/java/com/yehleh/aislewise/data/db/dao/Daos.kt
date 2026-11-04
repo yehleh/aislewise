@@ -102,6 +102,9 @@ interface CatalogDao {
     @Query("DELETE FROM catalog_items WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("UPDATE catalog_items SET note = :note WHERE id = :id")
+    suspend fun setNote(id: Long, note: String?)
+
     @Query("SELECT * FROM item_stores")
     fun observeAllItemStores(): Flow<List<ItemStore>>
 
@@ -133,7 +136,7 @@ data class ListEntryRow(
 interface ListDao {
     @Query(
         """
-        SELECT e.id, e.itemId, c.name, e.quantity, e.note, e.checked, e.addedAt,
+        SELECT e.id, e.itemId, c.name, e.quantity, c.note, e.checked, e.addedAt,
                c.sectionId, s.name AS sectionName, s.defaultOrder AS sectionDefaultOrder
         FROM list_entries e
         JOIN catalog_items c ON c.id = e.itemId
