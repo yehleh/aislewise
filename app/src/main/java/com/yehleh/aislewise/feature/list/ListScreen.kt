@@ -3,7 +3,7 @@ package com.yehleh.aislewise.feature.list
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,7 +74,7 @@ import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
+fun ListScreen(onScan: () -> Unit, onEditItem: (Long) -> Unit, viewModel: ListViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -174,6 +174,7 @@ fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
                                 selectedStoreId = state.selectedStoreId,
                                 onToggle = { viewModel.toggle(item.entry) },
                                 onEditNote = { noteEditing = item.entry },
+                                onEditItem = { onEditItem(item.entry.itemId) },
                                 onRemove = { removeWithUndo(item.entry) },
                                 modifier = Modifier.animateItem(),
                             )
@@ -200,13 +201,14 @@ fun ListScreen(onScan: () -> Unit, viewModel: ListViewModel = hiltViewModel()) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun ListRow(
     item: ListItemUi,
     selectedStoreId: Long?,
     onToggle: () -> Unit,
     onEditNote: () -> Unit,
+    onEditItem: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -245,7 +247,7 @@ private fun ListRow(
             Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
-                .clickable(onClick = onToggle)
+                .combinedClickable(onClick = onToggle, onLongClick = onEditItem)
                 .padding(horizontal = 4.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

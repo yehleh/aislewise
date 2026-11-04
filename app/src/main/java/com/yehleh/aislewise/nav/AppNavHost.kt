@@ -84,7 +84,10 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
             modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
         ) {
             composable(Routes.LIST) {
-                ListScreen(onScan = { navController.navigate(Routes.SCAN) })
+                ListScreen(
+                    onScan = { navController.navigate(Routes.SCAN) },
+                    onEditItem = { navController.navigate(Routes.itemEditor(it)) },
+                )
             }
             composable(Routes.CATALOG) {
                 CatalogScreen(onEditItem = { navController.navigate(Routes.itemEditor(it)) })
