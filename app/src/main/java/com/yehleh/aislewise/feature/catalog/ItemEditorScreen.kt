@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -29,6 +31,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -42,6 +46,7 @@ fun ItemEditorScreen(onBack: () -> Unit, viewModel: ItemEditorViewModel = hiltVi
     val state by viewModel.state.collectAsStateWithLifecycle()
     val stores by viewModel.stores.collectAsStateWithLifecycle()
     val sections by viewModel.sections.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
     var confirmDelete by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.done) { if (state.done) onBack() }
@@ -61,7 +66,9 @@ fun ItemEditorScreen(onBack: () -> Unit, viewModel: ItemEditorViewModel = hiltVi
     ) { padding ->
         if (!state.loaded) return@Scaffold
         Column(
-            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+            Modifier.padding(padding).fillMaxSize().imePadding()
+                .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
+                .verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             OutlinedTextField(
@@ -74,6 +81,14 @@ fun ItemEditorScreen(onBack: () -> Unit, viewModel: ItemEditorViewModel = hiltVi
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth(),
             )
+            SectionDropdown(sections, state.sectionId, viewModel::onSectionChange, Modifier.fillMaxWidth())
+            Text("Available at", style = MaterialTheme.typography.labelLarge)
+            StoreChips(stores, state.storeIds, viewModel::toggleStore)
+            Text(
+                "These stores are filled in automatically whenever you add this item.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedTextField(
                 value = state.note,
                 onValueChange = viewModel::onNoteChange,
@@ -83,14 +98,6 @@ fun ItemEditorScreen(onBack: () -> Unit, viewModel: ItemEditorViewModel = hiltVi
                 maxLines = 4,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                 modifier = Modifier.fillMaxWidth(),
-            )
-            SectionDropdown(sections, state.sectionId, viewModel::onSectionChange, Modifier.fillMaxWidth())
-            Text("Available at", style = MaterialTheme.typography.labelLarge)
-            StoreChips(stores, state.storeIds, viewModel::toggleStore)
-            Text(
-                "These stores are filled in automatically whenever you add this item.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Button(onClick = viewModel::save, modifier = Modifier.fillMaxWidth()) { Text("Save") }
         }
