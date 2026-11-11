@@ -15,13 +15,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -58,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yehleh.aislewise.data.db.dao.ListEntryRow
+import com.yehleh.aislewise.data.price.PriceParser
 import com.yehleh.aislewise.data.repo.ListItemUi
 import com.yehleh.aislewise.feature.add.AddItemSheet
 import com.yehleh.aislewise.feature.settings.LocalShowPrices
@@ -88,7 +93,7 @@ fun ListScreen(
     val scope = rememberCoroutineScope()
     var showAdd by rememberSaveable { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
-    var noteEditing by remember { mutableStateOf<ListEntryRow?>(null) }
+    var quickEditing by remember { mutableStateOf<ListItemUi?>(null) }
 
     fun removeWithUndo(entry: ListEntryRow) {
         viewModel.remove(entry)
@@ -188,7 +193,7 @@ fun ListScreen(
                                 item = item,
                                 selectedStoreId = state.selectedStoreId,
                                 onToggle = { viewModel.toggle(item.entry) },
-                                onEditNote = { noteEditing = item.entry },
+                                onEditDetails = { quickEditing = item },
                                 onEditItem = { onEditItem(item.entry.itemId) },
                                 onRemove = { removeWithUndo(item.entry) },
                                 modifier = Modifier.animateItem(),
@@ -204,13 +209,14 @@ fun ListScreen(
         AddItemSheet(onDismiss = { showAdd = false })
     }
 
-    noteEditing?.let { entry ->
-        NoteDialog(
-            entry = entry,
-            onDismiss = { noteEditing = null },
-            onSave = { note ->
-                viewModel.setNote(entry, note)
-                noteEditing = null
+    quickEditing?.let { item ->
+        ItemDetailsDialog(
+            item = item,
+            showPrices = LocalShowPrices.current,
+            onDismiss = { quickEditing = null },
+            onSave = { note, prices ->
+                viewModel.saveDetails(item, note, prices)
+                quickEditing = null
             },
         )
     }
@@ -222,7 +228,7 @@ private fun ListRow(
     item: ListItemUi,
     selectedStoreId: Long?,
     onToggle: () -> Unit,
-    onEditNote: () -> Unit,
+    onEditDetails: () -> Unit,
     onEditItem: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
@@ -325,11 +331,12 @@ private fun ListRow(
                     modifier = Modifier.padding(end = 16.dp),
                 )
             }
-            IconButton(onClick = onEditNote) {
+            IconButton(onClick = onEditDetails) {
+                val hasDetails = !entry.note.isNullOrBlank() || (showPrices && item.prices.isNotEmpty())
                 Icon(
-                    Icons.Default.EditNote,
-                    contentDescription = if (entry.note.isNullOrBlank()) "Add note" else "Edit note",
-                    tint = if (entry.note.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                    Icons.Default.Edit,
+                    contentDescription = if (hasDetails) "Edit details for ${entry.name}" else "Add note or price",
+                    tint = if (hasDetails) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -340,23 +347,71 @@ private fun ListRow(
 private const val SWIPE_DELETE_FRACTION = 0.4f
 
 @Composable
-private fun NoteDialog(entry: ListEntryRow, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
-    var text by rememberSaveable(entry.id) { mutableStateOf(entry.note.orEmpty()) }
+private fun ItemDetailsDialog(
+    item: ListItemUi,
+    showPrices: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String?, Map<Long, Long?>) -> Unit,
+) {
+    val entry = item.entry
+    var note by rememberSaveable(entry.id) { mutableStateOf(entry.note.orEmpty()) }
+    var prices by remember(entry.id) {
+        mutableStateOf(item.prices.mapValues { (_, price) -> PriceParser.toEditable(price.cents) })
+    }
+    var invalidPrice by remember { mutableStateOf(false) }
+    val showPriceFields = showPrices && item.stores.isNotEmpty()
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Note for ${entry.name}") },
+        title = { Text("Edit ${entry.name}") },
         text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text("Note") },
-                placeholder = { Text("e.g. Get the large box") },
-                minLines = 2,
-                maxLines = 4,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Note") },
+                    placeholder = { Text("e.g. Get the large box") },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (showPriceFields) {
+                    Text("Prices", style = MaterialTheme.typography.labelLarge)
+                    item.stores.forEach { store ->
+                        OutlinedTextField(
+                            value = prices[store.id].orEmpty(),
+                            onValueChange = {
+                                prices = prices + (store.id to it)
+                                invalidPrice = false
+                            },
+                            label = { Text("Price at ${store.name}") },
+                            placeholder = { Text("3.49") },
+                            singleLine = true,
+                            isError = invalidPrice,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
         },
-        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("Save") } },
+        confirmButton = {
+            TextButton(onClick = {
+                val typed = if (showPriceFields) {
+                    item.stores.associate { it.id to prices[it.id].orEmpty() }
+                } else {
+                    emptyMap()
+                }
+                if (typed.values.any { it.isNotBlank() && PriceParser.parseToCents(it) == null }) {
+                    invalidPrice = true
+                } else {
+                    onSave(note, typed.mapValues { (_, text) -> PriceParser.parseToCents(text) })
+                }
+            }) { Text("Save") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

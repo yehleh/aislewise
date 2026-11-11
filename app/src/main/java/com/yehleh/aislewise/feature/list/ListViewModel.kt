@@ -10,6 +10,7 @@ import com.yehleh.aislewise.data.db.entities.Store
 import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
 import com.yehleh.aislewise.data.repo.CatalogRepository
 import com.yehleh.aislewise.data.repo.ListGrouper
+import com.yehleh.aislewise.data.repo.ListItemUi
 import com.yehleh.aislewise.data.repo.SectionGroup
 import com.yehleh.aislewise.data.repo.ShoppingRepository
 import com.yehleh.aislewise.data.repo.StoreRepository
@@ -74,7 +75,9 @@ class ListViewModel @Inject constructor(
 
     fun remove(entry: ListEntryRow) = viewModelScope.launch { shopping.remove(entry.id) }
 
-    fun setNote(entry: ListEntryRow, note: String?) = viewModelScope.launch { catalog.setNote(entry.itemId, note) }
+    fun saveDetails(item: ListItemUi, note: String?, prices: Map<Long, Long?>) = viewModelScope.launch {
+        catalog.setDetails(item.entry.itemId, note, prices)
+    }
 
     fun undoRemove(entry: ListEntryRow) = viewModelScope.launch { shopping.restore(entry) }
 

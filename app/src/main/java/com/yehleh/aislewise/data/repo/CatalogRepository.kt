@@ -91,6 +91,15 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
     /** Sets the free-form note remembered with an item; blank clears it. */
     suspend fun setNote(itemId: Long, note: String?) = dao.setNote(itemId, cleanNote(note))
 
+    /**
+     * Quick edit from the list: updates the note and per-store prices without touching the item's
+     * section or stores. Prices follow the same rules as [update]: present null clears, absent keeps.
+     */
+    suspend fun setDetails(itemId: Long, note: String?, prices: Map<Long, Long?> = emptyMap()) = db.withTransaction {
+        dao.setNote(itemId, cleanNote(note))
+        replaceStores(itemId, dao.getItemStores(itemId).map { it.storeId }.toSet(), prices)
+    }
+
     suspend fun delete(itemId: Long) = dao.delete(itemId)
 
     private fun cleanNote(note: String?): String? = note?.trim()?.ifEmpty { null }

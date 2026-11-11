@@ -86,7 +86,6 @@ data class ListEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val itemId: Long,
     val quantity: String? = null,
-    val note: String? = null,
     val checked: Boolean = false,
     val addedAt: Long = System.currentTimeMillis(),
 )

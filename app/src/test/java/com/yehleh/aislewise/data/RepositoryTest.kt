@@ -150,6 +150,22 @@ class RepositoryTest {
         assertNull(catalog.findByName("milk")!!.prices[a])
     }
 
+    @Test fun `quick details update sets note and prices without changing stores or section`() = runTest {
+        val a = storeRepo.addStore("Costco", null)
+        val b = storeRepo.addStore("ShopRite", null)
+        val dairy = storeRepo.getSections().first { it.name == "Dairy" }.id
+        val id = shopping.addToList("Milk", null, dairy, setOf(a, b))
+
+        catalog.setDetails(id, "Get 2%", mapOf(a to 349L, b to null))
+
+        val known = catalog.findByName("milk")!!
+        assertEquals("Get 2%", known.note)
+        assertEquals(setOf(a, b), known.storeIds)
+        assertEquals(dairy, known.sectionId)
+        assertEquals(349L, known.prices.getValue(a).cents)
+        assertNull(known.prices[b])
+    }
+
     @Test fun `removing a store drops its remembered price`() = runTest {
         val a = storeRepo.addStore("Costco", null)
         val b = storeRepo.addStore("ShopRite", null)

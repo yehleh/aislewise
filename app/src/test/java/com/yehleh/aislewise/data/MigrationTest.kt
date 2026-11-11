@@ -15,6 +15,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,6 +65,33 @@ class MigrationTest {
             assertEquals("Warehouse", store.type)
             assertNull(store.color)
             assertEquals(setOf(1L), CatalogRepository(db).findByName("milk")!!.storeIds)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test fun `v4 to v5 drops the unused list entry note but keeps entries`() = runTest {
+        createFromSchema("migration-test-v4", 4).apply {
+            execSQL("INSERT INTO sections (id, name, defaultOrder) VALUES (1, 'Dairy', 0)")
+            execSQL("INSERT INTO catalog_items (id, name, normalizedName, sectionId, note) VALUES (1, 'Milk', 'milk', 1, NULL)")
+            execSQL("INSERT INTO list_entries (id, itemId, quantity, note, checked, addedAt) VALUES (1, 1, '2', 'old note', 0, 123)")
+            close()
+        }
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, "migration-test-v4")
+            .addMigrations(*Migrations.ALL)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val entry = db.listDao().observeEntries().first().single()
+            assertEquals("2", entry.quantity)
+            assertEquals(false, entry.checked)
+
+            val columns = mutableListOf<String>()
+            db.openHelper.readableDatabase.query("PRAGMA table_info(list_entries)").use { cursor ->
+                while (cursor.moveToNext()) columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
+            }
+            assertFalse(columns.contains("note"))
         } finally {
             db.close()
         }

@@ -17,7 +17,7 @@ import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
 
 @Database(
     entities = [Store::class, Section::class, StoreSectionOrder::class, CatalogItem::class, ItemStore::class, ListEntry::class],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -54,7 +54,26 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    /** v5: drops the unused per-entry note (the list shows the catalog item's note). */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `list_entries_new` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`itemId` INTEGER NOT NULL, `quantity` TEXT, `checked` INTEGER NOT NULL, " +
+                    "`addedAt` INTEGER NOT NULL, FOREIGN KEY(`itemId`) REFERENCES `catalog_items`(`id`) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE )",
+            )
+            db.execSQL(
+                "INSERT INTO `list_entries_new` (`id`, `itemId`, `quantity`, `checked`, `addedAt`) " +
+                    "SELECT `id`, `itemId`, `quantity`, `checked`, `addedAt` FROM `list_entries`",
+            )
+            db.execSQL("DROP TABLE `list_entries`")
+            db.execSQL("ALTER TABLE `list_entries_new` RENAME TO `list_entries`")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_list_entries_itemId` ON `list_entries` (`itemId`)")
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }
 
 /** Inserts the default sections when the database is first created. */
