@@ -97,6 +97,40 @@ class MigrationTest {
         }
     }
 
+    @Test fun `v5 to v6 reorders the default sections but keeps store overrides`() = runTest {
+        createFromSchema("migration-test-v5", 5).apply {
+            listOf(
+                "Produce", "Bakery", "Dairy", "Meat & Fish", "Deli", "Dry Goods",
+                "Canned & Jarred", "Spices & Baking", "Snacks", "Beverages", "Frozen",
+                "Household", "Personal Care", "Other",
+            ).forEachIndexed { index, name ->
+                execSQL("INSERT INTO sections (name, defaultOrder) VALUES (?, ?)", arrayOf<Any?>(name, index))
+            }
+            execSQL("INSERT INTO stores (id, name, type, sortIndex, color) VALUES (1, 'Costco', NULL, 0, NULL)")
+            execSQL("INSERT INTO store_section_order (storeId, sectionId, position) VALUES (1, 14, 0)")
+            close()
+        }
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, "migration-test-v5")
+            .addMigrations(*Migrations.ALL)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val names = StoreRepository(db).getSections().map { it.name }
+            assertEquals(
+                listOf(
+                    "Produce", "Deli", "Dairy", "Meat & Fish", "Dry Goods", "Canned & Jarred",
+                    "Spices & Baking", "Frozen", "Snacks", "Bakery", "Beverages", "Household",
+                    "Personal Care", "Other",
+                ),
+                names,
+            )
+            assertEquals(0, db.sectionDao().observeStoreOrder(1).first().single().position)
+        } finally {
+            db.close()
+        }
+    }
+
     @Test fun `v3 to v4 keeps item stores and adds empty prices`() = runTest {
         createFromSchema("migration-test-v3", 3).apply {
             execSQL("INSERT INTO sections (id, name, defaultOrder) VALUES (1, 'Dairy', 0)")

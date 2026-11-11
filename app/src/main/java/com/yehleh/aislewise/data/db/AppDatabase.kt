@@ -17,7 +17,7 @@ import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
 
 @Database(
     entities = [Store::class, Section::class, StoreSectionOrder::class, CatalogItem::class, ItemStore::class, ListEntry::class],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -73,14 +73,38 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    /** v6: reorders the seeded sections into a more natural walking order. */
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            listOf(
+                "Produce",
+                "Deli",
+                "Dairy",
+                "Meat & Fish",
+                "Dry Goods",
+                "Canned & Jarred",
+                "Spices & Baking",
+                "Frozen",
+                "Snacks",
+                "Bakery",
+                "Beverages",
+                "Household",
+                "Personal Care",
+                "Other",
+            ).forEachIndexed { index, name ->
+                db.execSQL("UPDATE sections SET defaultOrder = ? WHERE name = ?", arrayOf<Any?>(index, name))
+            }
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 }
 
 /** Inserts the default sections when the database is first created. */
 object SeedCallback : RoomDatabase.Callback() {
     override fun onCreate(db: SupportSQLiteDatabase) {
         Seed.DEFAULT_SECTIONS.forEachIndexed { index, name ->
-            db.execSQL("INSERT INTO sections (name, defaultOrder) VALUES (?, ?)", arrayOf(name, index))
+            db.execSQL("INSERT INTO sections (name, defaultOrder) VALUES (?, ?)", arrayOf<Any?>(name, index))
         }
     }
 }
@@ -90,16 +114,16 @@ object Seed {
 
     val DEFAULT_SECTIONS = listOf(
         "Produce",
-        "Bakery",
+        "Deli",
         "Dairy",
         "Meat & Fish",
-        "Deli",
         "Dry Goods",
         "Canned & Jarred",
         "Spices & Baking",
-        "Snacks",
-        "Beverages",
         "Frozen",
+        "Snacks",
+        "Bakery",
+        "Beverages",
         "Household",
         "Personal Care",
         OTHER,

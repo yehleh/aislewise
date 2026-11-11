@@ -33,10 +33,16 @@ class RepositoryTest {
 
     @After fun tearDown() = db.close()
 
-    @Test fun `default sections are seeded`() = runTest {
+    @Test fun `default sections are seeded in shopping order`() = runTest {
         val names = storeRepo.getSections().map { it.name }
-        assertEquals("Produce", names.first())
-        assertEquals("Other", names.last())
+        assertEquals(
+            listOf(
+                "Produce", "Deli", "Dairy", "Meat & Fish", "Dry Goods", "Canned & Jarred",
+                "Spices & Baking", "Frozen", "Snacks", "Bakery", "Beverages", "Household",
+                "Personal Care", "Other",
+            ),
+            names,
+        )
     }
 
     @Test fun `stores picked for an item are remembered the next time it is added`() = runTest {
