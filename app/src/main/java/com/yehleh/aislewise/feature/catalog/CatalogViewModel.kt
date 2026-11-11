@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yehleh.aislewise.data.normalize.ItemNameNormalizer
+import com.yehleh.aislewise.data.price.PriceParser
 import com.yehleh.aislewise.data.repo.CatalogEntry
 import com.yehleh.aislewise.data.repo.CatalogRepository
 import com.yehleh.aislewise.data.repo.DuplicateItemNameException
@@ -49,6 +50,8 @@ data class ItemEditorState(
     val name: String = "",
     val sectionId: Long? = null,
     val storeIds: Set<Long> = emptySet(),
+    /** Typed prices by store id; blank means "no price". */
+    val prices: Map<Long, String> = emptyMap(),
     val note: String = "",
     val error: String? = null,
     val done: Boolean = false,
@@ -77,6 +80,7 @@ class ItemEditorViewModel @Inject constructor(
                 name = item.name,
                 sectionId = item.sectionId,
                 storeIds = item.storeIds,
+                prices = item.prices.mapValues { (_, price) -> PriceParser.toEditable(price.cents) },
                 note = item.note.orEmpty(),
             )
         }
@@ -84,6 +88,8 @@ class ItemEditorViewModel @Inject constructor(
 
     fun onNameChange(name: String) = _state.update { it.copy(name = name, error = null) }
     fun onSectionChange(id: Long?) = _state.update { it.copy(sectionId = id) }
+    fun onPriceChange(storeId: Long, price: String) =
+        _state.update { it.copy(prices = it.prices + (storeId to price), error = null) }
     fun onNoteChange(note: String) = _state.update { it.copy(note = note) }
     fun toggleStore(id: Long) = _state.update {
         it.copy(storeIds = if (id in it.storeIds) it.storeIds - id else it.storeIds + id)
@@ -95,9 +101,15 @@ class ItemEditorViewModel @Inject constructor(
             _state.update { it.copy(error = "Name can't be empty") }
             return
         }
+        val typed = s.storeIds.associateWith { id -> s.prices[id].orEmpty() }
+        if (typed.values.any { it.isNotBlank() && PriceParser.parseToCents(it) == null }) {
+            _state.update { it.copy(error = "Enter a price like 3.49") }
+            return
+        }
+        val prices = typed.mapValues { (_, text) -> PriceParser.parseToCents(text) }
         viewModelScope.launch {
             try {
-                catalog.update(itemId, s.name, s.sectionId, s.storeIds, s.note)
+                catalog.update(itemId, s.name, s.sectionId, s.storeIds, s.note, prices)
                 _state.update { it.copy(done = true) }
             } catch (e: DuplicateItemNameException) {
                 _state.update { it.copy(error = "\"${e.existingName}\" already exists") }

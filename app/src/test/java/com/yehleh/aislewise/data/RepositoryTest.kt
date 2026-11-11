@@ -109,6 +109,60 @@ class RepositoryTest {
         assertEquals("price", catalog.findByName("Whole milk")!!.note)
     }
 
+    @Test fun `a price is remembered per store and survives re-adding the item`() = runTest {
+        val a = storeRepo.addStore("Costco", null)
+        val b = storeRepo.addStore("ShopRite", null)
+        val id = shopping.addToList("Milk", null, null, setOf(a, b))
+
+        catalog.update(id, "Milk", null, setOf(a, b), null, mapOf(a to 349L, b to 299L))
+        assertEquals(349L, catalog.findByName("milk")!!.prices.getValue(a).cents)
+        assertEquals(299L, catalog.findByName("milk")!!.prices.getValue(b).cents)
+
+        shopping.addToList("milk", "2", null, setOf(a, b))
+        assertEquals(349L, catalog.findByName("milk")!!.prices.getValue(a).cents)
+        assertEquals(299L, catalog.findByName("milk")!!.prices.getValue(b).cents)
+    }
+
+    @Test fun `an unchanged price keeps its timestamp and a new one is recorded`() = runTest {
+        val a = storeRepo.addStore("Costco", null)
+        val id = shopping.addToList("Milk", null, null, setOf(a))
+
+        catalog.update(id, "Milk", null, setOf(a), null, mapOf(a to 349L))
+        val first = catalog.findByName("milk")!!.prices.getValue(a)
+        catalog.update(id, "Milk", null, setOf(a), null, mapOf(a to 349L))
+        assertEquals(first.updatedAt, catalog.findByName("milk")!!.prices.getValue(a).updatedAt)
+
+        catalog.update(id, "Milk", null, setOf(a), null, mapOf(a to 399L))
+        val changed = catalog.findByName("milk")!!.prices.getValue(a)
+        assertEquals(399L, changed.cents)
+        assertFalse(changed.updatedAt == null)
+    }
+
+    @Test fun `a blank price clears it while an absent entry keeps it`() = runTest {
+        val a = storeRepo.addStore("Costco", null)
+        val id = shopping.addToList("Milk", null, null, setOf(a))
+        catalog.update(id, "Milk", null, setOf(a), null, mapOf(a to 349L))
+
+        catalog.update(id, "Milk", null, setOf(a), null, emptyMap())
+        assertEquals(349L, catalog.findByName("milk")!!.prices.getValue(a).cents)
+
+        catalog.update(id, "Milk", null, setOf(a), null, mapOf(a to null))
+        assertNull(catalog.findByName("milk")!!.prices[a])
+    }
+
+    @Test fun `removing a store drops its remembered price`() = runTest {
+        val a = storeRepo.addStore("Costco", null)
+        val b = storeRepo.addStore("ShopRite", null)
+        val id = shopping.addToList("Milk", null, null, setOf(a, b))
+        catalog.update(id, "Milk", null, setOf(a, b), null, mapOf(a to 349L, b to 299L))
+
+        catalog.update(id, "Milk", null, setOf(b), null, emptyMap())
+
+        val prices = catalog.findByName("milk")!!.prices
+        assertNull(prices[a])
+        assertEquals(299L, prices.getValue(b).cents)
+    }
+
     @Test(expected = DuplicateItemNameException::class)
     fun `renaming onto an existing item is rejected`() = runTest {
         shopping.addToList("Apples", null, null, emptySet())

@@ -75,6 +75,49 @@ class ListGrouperTest {
         assertEquals(listOf("Produce", "Dairy", "Snacks", "Unsorted"), names(costco.id, orders).map { it.first })
     }
 
+    @Test fun `cheapest store is the one with the lowest known price`() {
+        val priced = listOf(
+            ItemStore(1, costco.id, priceCents = 349, priceUpdatedAt = 1),
+            ItemStore(1, shoprite.id, priceCents = 299, priceUpdatedAt = 2),
+        )
+        val item = ListGrouper.group(entries.filter { it.id == 1L }, priced, stores, sections, emptyList(), null)
+            .single().items.single()
+
+        val best = ListGrouper.cheapestStore(item)!!
+        assertEquals(shoprite.id, best.first.id)
+        assertEquals(299L, best.second.cents)
+    }
+
+    @Test fun `cheapest store ignores stores without a price`() {
+        val priced = listOf(
+            ItemStore(1, costco.id, priceCents = 349, priceUpdatedAt = 1),
+            ItemStore(1, shoprite.id),
+        )
+        val item = ListGrouper.group(entries.filter { it.id == 1L }, priced, stores, sections, emptyList(), null)
+            .single().items.single()
+
+        assertEquals(costco.id, ListGrouper.cheapestStore(item)!!.first.id)
+    }
+
+    @Test fun `cheapest store is null when no store has a price`() {
+        val item = ListGrouper.group(entries.filter { it.id == 1L }, itemStores, stores, sections, emptyList(), null)
+            .single().items.single()
+
+        assertEquals(null, ListGrouper.cheapestStore(item))
+    }
+
+    @Test fun `cheapest store breaks ties by store order`() {
+        val priced = listOf(
+            ItemStore(1, shoprite.id, priceCents = 299),
+            ItemStore(1, costco.id, priceCents = 299),
+        )
+        val item = ListGrouper.group(entries.filter { it.id == 1L }, priced, stores, sections, emptyList(), null)
+            .single().items.single()
+
+        // Stores are sorted by sortIndex, so Costco comes first despite the link order.
+        assertEquals(costco.id, ListGrouper.cheapestStore(item)!!.first.id)
+    }
+
     @Test fun `counts include unchecked entries available at each store`() {
         assertEquals(mapOf(costco.id to 3, shoprite.id to 3), ListGrouper.countsByStore(entries, itemStores, stores))
     }

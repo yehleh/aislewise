@@ -69,6 +69,10 @@ data class CatalogItem(
 data class ItemStore(
     val itemId: Long,
     val storeId: Long,
+    /** Last known price in cents at this store; null when unknown. */
+    val priceCents: Long? = null,
+    /** When [priceCents] was last recorded, so the UI can show how stale it is. */
+    val priceUpdatedAt: Long? = null,
 )
 
 @Entity(

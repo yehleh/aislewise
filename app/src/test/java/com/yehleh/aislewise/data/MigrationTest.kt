@@ -69,6 +69,28 @@ class MigrationTest {
         }
     }
 
+    @Test fun `v3 to v4 keeps item stores and adds empty prices`() = runTest {
+        createFromSchema("migration-test-v3", 3).apply {
+            execSQL("INSERT INTO sections (id, name, defaultOrder) VALUES (1, 'Dairy', 0)")
+            execSQL("INSERT INTO stores (id, name, type, sortIndex, color) VALUES (1, 'Costco', NULL, 0, NULL)")
+            execSQL("INSERT INTO catalog_items (id, name, normalizedName, sectionId, note) VALUES (1, 'Milk', 'milk', 1, NULL)")
+            execSQL("INSERT INTO item_stores (itemId, storeId) VALUES (1, 1)")
+            close()
+        }
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, "migration-test-v3")
+            .addMigrations(*Migrations.ALL)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            val item = CatalogRepository(db).findByName("milk")!!
+            assertEquals(setOf(1L), item.storeIds)
+            assertEquals(0, item.prices.size)
+        } finally {
+            db.close()
+        }
+    }
+
     @Test fun `v2 to v3 keeps catalog items and adds an empty note`() = runTest {
         createFromSchema("migration-test-v2", 2).apply {
             execSQL("INSERT INTO sections (id, name, defaultOrder) VALUES (1, 'Dairy', 0)")

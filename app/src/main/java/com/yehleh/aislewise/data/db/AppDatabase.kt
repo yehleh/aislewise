@@ -17,7 +17,7 @@ import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
 
 @Database(
     entities = [Store::class, Section::class, StoreSectionOrder::class, CatalogItem::class, ItemStore::class, ListEntry::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,7 +46,15 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /** v4: a remembered last price per item per store. */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE item_stores ADD COLUMN priceCents INTEGER DEFAULT NULL")
+            db.execSQL("ALTER TABLE item_stores ADD COLUMN priceUpdatedAt INTEGER DEFAULT NULL")
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }
 
 /** Inserts the default sections when the database is first created. */

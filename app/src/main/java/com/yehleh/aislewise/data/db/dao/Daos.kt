@@ -111,6 +111,9 @@ interface CatalogDao {
     @Query("SELECT storeId FROM item_stores WHERE itemId = :itemId")
     suspend fun getStoreIds(itemId: Long): List<Long>
 
+    @Query("SELECT * FROM item_stores WHERE itemId = :itemId")
+    suspend fun getItemStores(itemId: Long): List<ItemStore>
+
     @Query("DELETE FROM item_stores WHERE itemId = :itemId")
     suspend fun clearStores(itemId: Long)
 

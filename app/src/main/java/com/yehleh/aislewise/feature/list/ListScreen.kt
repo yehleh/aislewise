@@ -67,14 +67,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yehleh.aislewise.data.db.dao.ListEntryRow
 import com.yehleh.aislewise.data.repo.ListItemUi
 import com.yehleh.aislewise.feature.add.AddItemSheet
+import com.yehleh.aislewise.feature.settings.LocalShowPrices
+import com.yehleh.aislewise.ui.components.BestPriceLine
 import com.yehleh.aislewise.ui.components.StoreBadges
 import com.yehleh.aislewise.ui.components.StoreDot
+import com.yehleh.aislewise.ui.components.StorePriceLine
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ListScreen(onScan: () -> Unit, onEditItem: (Long) -> Unit, viewModel: ListViewModel = hiltViewModel()) {
+fun ListScreen(
+    onScan: () -> Unit,
+    onEditItem: (Long) -> Unit,
+    onSettings: () -> Unit,
+    viewModel: ListViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -104,6 +112,13 @@ fun ListScreen(onScan: () -> Unit, onEditItem: (Long) -> Unit, viewModel: ListVi
                             onClick = {
                                 menuOpen = false
                                 viewModel.clearChecked()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = {
+                                menuOpen = false
+                                onSettings()
                             },
                         )
                     }
@@ -212,6 +227,7 @@ private fun ListRow(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val showPrices = LocalShowPrices.current
     // The swipe state is remembered across recompositions, so read the latest callback, not the first one.
     val currentOnRemove by rememberUpdatedState(onRemove)
     var rowWidth by remember { mutableFloatStateOf(0f) }
@@ -293,6 +309,13 @@ private fun ListRow(
                         }
                     }
                 }
+                if (showPrices) {
+                    if (selectedStoreId != null) {
+                        item.prices[selectedStoreId]?.let { StorePriceLine(it, Modifier.padding(top = 2.dp)) }
+                    } else {
+                        BestPriceLine(item.stores, item.prices, Modifier.padding(top = 2.dp))
+                    }
+                }
             }
             if (!entry.quantity.isNullOrBlank()) {
                 Text(
@@ -327,7 +350,7 @@ private fun NoteDialog(entry: ListEntryRow, onDismiss: () -> Unit, onSave: (Stri
                 value = text,
                 onValueChange = { text = it },
                 label = { Text("Note") },
-                placeholder = { Text("e.g. This was $3.49 at ShopRite") },
+                placeholder = { Text("e.g. Get the large box") },
                 minLines = 2,
                 maxLines = 4,
                 modifier = Modifier.fillMaxWidth(),

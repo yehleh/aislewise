@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yehleh.aislewise.feature.settings.LocalShowPrices
+import com.yehleh.aislewise.ui.components.BestPriceLine
 import com.yehleh.aislewise.ui.components.StoreBadges
 
 /** Every remembered item with its section and stores; tap one to change where it can be bought. */
@@ -40,6 +42,7 @@ fun CatalogScreen(onEditItem: (Long) -> Unit, viewModel: CatalogViewModel = hilt
     val items by viewModel.items.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val showPrices = LocalShowPrices.current
 
     LaunchedEffect(Unit) {
         viewModel.messages.collect {
@@ -78,10 +81,15 @@ fun CatalogScreen(onEditItem: (Long) -> Unit, viewModel: CatalogViewModel = hilt
                         headlineContent = { Text(item.name) },
                         overlineContent = { Text(item.sectionName ?: "No section") },
                         supportingContent = {
-                            if (item.stores.isEmpty()) {
-                                Text("Any store", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            } else {
-                                StoreBadges(item.stores, Modifier.padding(top = 4.dp))
+                            Column {
+                                if (item.stores.isEmpty()) {
+                                    Text("Any store", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                } else {
+                                    StoreBadges(item.stores, Modifier.padding(top = 4.dp))
+                                }
+                                if (showPrices) {
+                                    BestPriceLine(item.stores, item.prices, Modifier.padding(top = 2.dp))
+                                }
                             }
                         },
                         trailingContent = {

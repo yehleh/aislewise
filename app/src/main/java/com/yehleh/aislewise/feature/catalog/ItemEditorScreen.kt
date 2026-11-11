@@ -34,9 +34,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yehleh.aislewise.feature.settings.LocalShowPrices
 import com.yehleh.aislewise.ui.components.SectionDropdown
 import com.yehleh.aislewise.ui.components.StoreChips
 
@@ -47,6 +49,7 @@ fun ItemEditorScreen(onBack: () -> Unit, viewModel: ItemEditorViewModel = hiltVi
     val stores by viewModel.stores.collectAsStateWithLifecycle()
     val sections by viewModel.sections.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
+    val showPrices = LocalShowPrices.current
     var confirmDelete by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.done) { if (state.done) onBack() }
@@ -89,11 +92,25 @@ fun ItemEditorScreen(onBack: () -> Unit, viewModel: ItemEditorViewModel = hiltVi
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (showPrices && state.storeIds.isNotEmpty()) {
+                Text("Prices", style = MaterialTheme.typography.labelLarge)
+                stores.filter { it.id in state.storeIds }.forEach { store ->
+                    OutlinedTextField(
+                        value = state.prices[store.id].orEmpty(),
+                        onValueChange = { viewModel.onPriceChange(store.id, it) },
+                        label = { Text("Price at ${store.name}") },
+                        placeholder = { Text("3.49") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
             OutlinedTextField(
                 value = state.note,
                 onValueChange = viewModel::onNoteChange,
                 label = { Text("Note") },
-                placeholder = { Text("e.g. This was $3.49 at ShopRite") },
+                placeholder = { Text("e.g. Get the large box") },
                 minLines = 2,
                 maxLines = 4,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),

@@ -22,7 +22,7 @@ object ListGrouper {
         storeFilter: Long?,
     ): List<SectionGroup> {
         val storesById = stores.associateBy { it.id }
-        val storeIdsByItem = itemStores.groupBy({ it.itemId }, { it.storeId })
+        val linksByItem = itemStores.groupBy { it.itemId }
         val sectionsById = sections.associateBy { it.id }
         val orderForStore = storeFilter?.let { id ->
             storeOrders.filter { it.storeId == id }.associate { it.sectionId to it.position }
@@ -35,9 +35,16 @@ object ListGrouper {
 
         return entries
             .mapNotNull { entry ->
-                val storeIds = storeIdsByItem[entry.itemId].orEmpty()
+                val links = linksByItem[entry.itemId].orEmpty()
+                val storeIds = links.map { it.storeId }
                 if (storeFilter != null && storeIds.isNotEmpty() && storeFilter !in storeIds) return@mapNotNull null
-                ListItemUi(entry, storeIds.mapNotNull { storesById[it] }.sortedBy { it.sortIndex })
+                ListItemUi(
+                    entry = entry,
+                    stores = storeIds.mapNotNull { storesById[it] }.sortedBy { it.sortIndex },
+                    prices = links.mapNotNull { link ->
+                        link.priceCents?.let { link.storeId to StorePrice(it, link.priceUpdatedAt) }
+                    }.toMap(),
+                )
             }
             .groupBy { it.entry.sectionId?.takeIf { id -> id in sectionsById } }
             .entries
@@ -49,6 +56,17 @@ object ListGrouper {
                 )
             }
     }
+
+    /**
+     * The store with the lowest known price for this item, or null when no store has a price.
+     * Ties keep the item's store order, so the first store by sort index wins.
+     */
+    fun cheapestStore(item: ListItemUi): Pair<Store, StorePrice>? =
+        cheapestStore(item.stores, item.prices)
+
+    fun cheapestStore(stores: List<Store>, prices: Map<Long, StorePrice>): Pair<Store, StorePrice>? =
+        stores.mapNotNull { store -> prices[store.id]?.let { store to it } }
+            .minByOrNull { (_, price) -> price.cents }
 
     /** Orders stores by their count, highest first; ties keep the given order. */
     fun sortByCount(stores: List<Store>, counts: Map<Long, Int>): List<Store> =

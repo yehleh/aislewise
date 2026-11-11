@@ -17,14 +17,16 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
     fun observeCatalog(): Flow<List<CatalogEntry>> =
         combine(dao.observeCatalog(), dao.observeAllItemStores(), db.storeDao().observeStores()) { rows, links, stores ->
             val storesById = stores.associateBy { it.id }
-            val storeIdsByItem = links.groupBy({ it.itemId }, { it.storeId })
+            val linksByItem = links.groupBy { it.itemId }
             rows.map { row ->
+                val itemLinks = linksByItem[row.id].orEmpty()
                 CatalogEntry(
                     id = row.id,
                     name = row.name,
                     sectionId = row.sectionId,
                     sectionName = row.sectionName,
-                    stores = storeIdsByItem[row.id].orEmpty().mapNotNull { storesById[it] }.sortedBy { it.sortIndex },
+                    stores = itemLinks.mapNotNull { storesById[it.storeId] }.sortedBy { it.sortIndex },
+                    prices = pricesOf(itemLinks),
                 )
             }
         }
@@ -63,18 +65,28 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
         id
     }
 
-    /** Edits an existing item, including renaming it. */
-    suspend fun update(itemId: Long, name: String, sectionId: Long?, storeIds: Set<Long>, note: String? = null) =
-        db.withTransaction {
-            val item = requireNotNull(dao.getItem(itemId)) { "Item $itemId not found" }
-            val displayName = name.trim().replace(Regex("\\s+"), " ")
-            val key = ItemNameNormalizer.normalize(displayName)
-            require(key.isNotEmpty()) { "Item name is empty" }
-            val clash = dao.getByNormalizedName(key)
-            if (clash != null && clash.id != itemId) throw DuplicateItemNameException(clash.name)
-            dao.update(item.copy(name = displayName, normalizedName = key, sectionId = sectionId, note = cleanNote(note)))
-            replaceStores(itemId, storeIds)
-        }
+    /**
+     * Edits an existing item, including renaming it. [prices] maps a store to its typed price in
+     * cents; a key present with a null value clears that store's price, while an absent key keeps
+     * whatever was remembered (so hiding the price UI can't wipe it).
+     */
+    suspend fun update(
+        itemId: Long,
+        name: String,
+        sectionId: Long?,
+        storeIds: Set<Long>,
+        note: String? = null,
+        prices: Map<Long, Long?> = emptyMap(),
+    ) = db.withTransaction {
+        val item = requireNotNull(dao.getItem(itemId)) { "Item $itemId not found" }
+        val displayName = name.trim().replace(Regex("\\s+"), " ")
+        val key = ItemNameNormalizer.normalize(displayName)
+        require(key.isNotEmpty()) { "Item name is empty" }
+        val clash = dao.getByNormalizedName(key)
+        if (clash != null && clash.id != itemId) throw DuplicateItemNameException(clash.name)
+        dao.update(item.copy(name = displayName, normalizedName = key, sectionId = sectionId, note = cleanNote(note)))
+        replaceStores(itemId, storeIds, prices)
+    }
 
     /** Sets the free-form note remembered with an item; blank clears it. */
     suspend fun setNote(itemId: Long, note: String?) = dao.setNote(itemId, cleanNote(note))
@@ -83,11 +95,43 @@ class CatalogRepository @Inject constructor(private val db: AppDatabase) {
 
     private fun cleanNote(note: String?): String? = note?.trim()?.ifEmpty { null }
 
-    private suspend fun replaceStores(itemId: Long, storeIds: Set<Long>) {
+    /**
+     * Replaces an item's store links, keeping the remembered price of stores that stay. For a
+     * store in [prices], a changed value bumps the timestamp and a null clears it; stores not in
+     * [prices] keep their price untouched.
+     */
+    private suspend fun replaceStores(itemId: Long, storeIds: Set<Long>, prices: Map<Long, Long?> = emptyMap()) {
+        val now = System.currentTimeMillis()
+        val existing = dao.getItemStores(itemId).associateBy { it.storeId }
+        val rows = storeIds.map { storeId ->
+            val prev = existing[storeId]
+            val cents = if (prices.containsKey(storeId)) prices[storeId] else prev?.priceCents
+            val updatedAt = when {
+                !prices.containsKey(storeId) -> prev?.priceUpdatedAt
+                cents == null -> null
+                prev == null || prev.priceCents != cents -> now
+                else -> prev.priceUpdatedAt
+            }
+            ItemStore(itemId, storeId, cents, updatedAt)
+        }
         dao.clearStores(itemId)
-        dao.insertItemStores(storeIds.map { ItemStore(itemId, it) })
+        dao.insertItemStores(rows)
     }
 
-    private suspend fun knowledgeFor(item: CatalogItem) =
-        ItemKnowledge(item.id, item.name, item.sectionId, dao.getStoreIds(item.id).toSet(), item.note)
+    private suspend fun knowledgeFor(item: CatalogItem): ItemKnowledge {
+        val links = dao.getItemStores(item.id)
+        return ItemKnowledge(
+            itemId = item.id,
+            name = item.name,
+            sectionId = item.sectionId,
+            storeIds = links.map { it.storeId }.toSet(),
+            note = item.note,
+            prices = pricesOf(links),
+        )
+    }
+
+    private fun pricesOf(links: List<ItemStore>): Map<Long, StorePrice> =
+        links.mapNotNull { link ->
+            link.priceCents?.let { link.storeId to StorePrice(it, link.priceUpdatedAt) }
+        }.toMap()
 }
