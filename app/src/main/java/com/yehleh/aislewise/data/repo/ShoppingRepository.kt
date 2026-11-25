@@ -51,5 +51,13 @@ class ShoppingRepository @Inject constructor(
         dao.insert(ListEntry(id = row.id, itemId = row.itemId, quantity = row.quantity, checked = row.checked, addedAt = row.addedAt))
     }
 
-    suspend fun clearChecked() = dao.deleteChecked()
+    /** Deletes checked entries and returns them so the caller can offer undo. */
+    suspend fun clearChecked(): List<ListEntry> = db.withTransaction {
+        dao.getChecked().also { dao.deleteChecked() }
+    }
+
+    /** Undoes [clearChecked], skipping items that were re-added in the meantime. */
+    suspend fun restoreCleared(entries: List<ListEntry>) = db.withTransaction {
+        entries.filter { dao.getEntryForItem(it.itemId) == null }.forEach { dao.insert(it) }
+    }
 }

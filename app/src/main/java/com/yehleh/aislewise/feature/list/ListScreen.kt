@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -104,21 +105,29 @@ fun ListScreen(
         }
     }
 
+    fun clearCheckedWithUndo() {
+        scope.launch {
+            val cleared = viewModel.clearChecked()
+            if (cleared.isEmpty()) return@launch
+            snackbar.currentSnackbarData?.dismiss()
+            val noun = if (cleared.size == 1) "item" else "items"
+            val result = snackbar.showSnackbar("Cleared ${cleared.size} $noun", actionLabel = "Undo", withDismissAction = true)
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoClear(cleared)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("AisleWise") },
                 actions = {
+                    if (state.hasChecked) {
+                        IconButton(onClick = ::clearCheckedWithUndo) {
+                            Icon(Icons.Default.DeleteSweep, "Clear checked items")
+                        }
+                    }
                     IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, "More") }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Clear checked items") },
-                            enabled = state.hasChecked,
-                            onClick = {
-                                menuOpen = false
-                                viewModel.clearChecked()
-                            },
-                        )
                         DropdownMenuItem(
                             text = { Text("Settings") },
                             onClick = {

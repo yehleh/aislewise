@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yehleh.aislewise.data.db.dao.ListEntryRow
 import com.yehleh.aislewise.data.db.entities.ItemStore
+import com.yehleh.aislewise.data.db.entities.ListEntry
 import com.yehleh.aislewise.data.db.entities.Section
 import com.yehleh.aislewise.data.db.entities.Store
 import com.yehleh.aislewise.data.db.entities.StoreSectionOrder
@@ -81,7 +82,9 @@ class ListViewModel @Inject constructor(
 
     fun undoRemove(entry: ListEntryRow) = viewModelScope.launch { shopping.restore(entry) }
 
-    fun clearChecked() = viewModelScope.launch { shopping.clearChecked() }
+    suspend fun clearChecked(): List<ListEntry> = shopping.clearChecked()
+
+    fun undoClear(entries: List<ListEntry>) = viewModelScope.launch { shopping.restoreCleared(entries) }
 
     private data class Snapshot(
         val entries: List<ListEntryRow>,

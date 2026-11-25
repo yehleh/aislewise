@@ -163,6 +163,9 @@ interface ListDao {
     @Query("DELETE FROM list_entries WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("SELECT * FROM list_entries WHERE checked = 1")
+    suspend fun getChecked(): List<ListEntry>
+
     @Query("DELETE FROM list_entries WHERE checked = 1")
     suspend fun deleteChecked()
 }

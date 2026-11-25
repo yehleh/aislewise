@@ -12,6 +12,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,6 +59,24 @@ class RepositoryTest {
         assertEquals(setOf(a, b), remembered.storeIds)
         assertEquals(dairy, remembered.sectionId)
         assertEquals("Milk", remembered.name)
+    }
+
+    @Test fun `clearing checked items can be undone without duplicating re-added items`() = runTest {
+        shopping.addToList("Milk", null, null, emptySet())
+        shopping.addToList("Bread", null, null, emptySet())
+        shopping.addToList("Eggs", null, null, emptySet())
+        shopping.observeEntries().first().filter { it.name != "Eggs" }.forEach { shopping.setChecked(it.id, true) }
+
+        val cleared = shopping.clearChecked()
+        assertEquals(listOf("Eggs"), shopping.observeEntries().first().map { it.name })
+
+        shopping.addToList("Milk", null, null, emptySet())
+        shopping.restoreCleared(cleared)
+
+        val entries = shopping.observeEntries().first()
+        assertEquals(listOf("Bread", "Eggs", "Milk"), entries.map { it.name }.sorted())
+        assertTrue(entries.single { it.name == "Bread" }.checked)
+        assertFalse(entries.single { it.name == "Milk" }.checked)
     }
 
     @Test fun `adding again updates the remembered stores and does not duplicate the entry`() = runTest {
